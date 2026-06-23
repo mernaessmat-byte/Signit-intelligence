@@ -456,12 +456,12 @@ tbody tr:hover{background:#faf9ff}
 const CONTRACTS = [
   {id:"aws",name:"AWS Cloud Services",vendor:"Amazon Web Services EMEA",type:"SaaS/Cloud",tc:"saas",value:"$840K",valueDetail:"$840,000 / year",renewalText:"18 days",renewalDays:18,urg:"red",autoRenew:true,risk:"High",status:"Urgent",sc:"urgent",effective:"01 Jul 2024",renewalDate:"11 Jul 2026",law:"DIFC, UAE"},
   {id:"salesforce",name:"Salesforce CRM License",vendor:"Salesforce.com Inc.",type:"SaaS",tc:"saas",value:"$320K",valueDetail:"$320,000 / year",renewalText:"47 days",renewalDays:47,urg:"amber",autoRenew:true,risk:"Medium",status:"Review",sc:"review",effective:"09 Aug 2024",renewalDate:"09 Aug 2026",law:"England & Wales"},
-  {id:"nda",name:"NDA — TechCorp Partnership",vendor:"TechCorp Holdings FZ-LLC",type:"NDA",tc:"nda",value:"—",valueDetail:"No monetary value",renewalText:"63 days",renewalDays:63,urg:"amber",autoRenew:false,risk:"Low",status:"Active",sc:"active",effective:"24 Apr 2025",renewalDate:"25 Aug 2026",law:"DIFC, UAE"},
+  {id:"nda",name:"NDA — TechCorp Partnership",vendor:"TechCorp Holdings FZ-LLC",type:"NDA",tc:"nda",value:"—",valueDetail:"No monetary value",renewalText:"63 days",renewalDays:63,urg:"amber",autoRenew:false,risk:"Low",status:"Active",sc:"active",effective:"24 Apr 2025",renewalDate:"25 Aug 2026",law:"DIFC, UAE",conflictDates:["25 Aug 2026","30 Sep 2026"],conflictResolved:false},
   {id:"lease",name:"Office Lease — Dubai HQ",vendor:"Emaar Properties PJSC",type:"Lease",tc:"lease",value:"$1.2M",valueDetail:"$1,200,000 / year",renewalText:"8 months",renewalDays:243,urg:"green",autoRenew:false,risk:"Medium",status:"Active",sc:"active",effective:"01 Mar 2023",renewalDate:"28 Feb 2027",law:"Dubai, UAE"},
   {id:"cto",name:"Employment Contract — CTO",vendor:"Internal — R. Haddad",type:"Employment",tc:"employment",value:"$240K/yr",valueDetail:"$240,000 / year",renewalText:"Ongoing",renewalDays:9999,urg:"green",autoRenew:false,risk:"Low",status:"Active",sc:"active",effective:"15 Jan 2024",renewalDate:"Ongoing",law:"DIFC, UAE"},
   {id:"seriesb",name:"Series B Investment Terms",vendor:"Gulf Ventures Capital",type:"Partnership",tc:"partnership",value:"$5M",valueDetail:"$5,000,000 raised",renewalText:"Perpetual",renewalDays:9999,urg:"green",autoRenew:false,risk:"Medium",status:"Active",sc:"active",effective:"30 Nov 2024",renewalDate:"Perpetual",law:"Cayman Islands"},
   {id:"marketing",name:"Marketing Agency Retainer",vendor:"Pulse Creative DMCC",type:"Consulting",tc:"consulting",value:"$180K",valueDetail:"$180,000 / year",renewalText:"5 months",renewalDays:152,urg:"green",autoRenew:false,risk:"High",status:"Active",sc:"active",effective:"01 Dec 2024",renewalDate:"22 Nov 2026",law:"Dubai, UAE"},
-  {id:"vendor",name:"Vendor Supply Agreement",vendor:"Orient Logistics LLC",type:"Vendor",tc:"vendor",value:"$95K",valueDetail:"$95,000 / year",renewalText:"9 months",renewalDays:274,urg:"green",autoRenew:false,risk:"Low",status:"Active",sc:"active",effective:"18 Sep 2024",renewalDate:"23 Mar 2027",law:"Sharjah, UAE"}
+  {id:"vendor",name:"Vendor Supply Agreement",vendor:"Orient Logistics LLC",type:"Vendor",tc:"vendor",value:"$95K",valueDetail:"$95,000 / year",renewalText:"9 months",renewalDays:274,urg:"green",autoRenew:false,risk:"Low",status:"Active",sc:"active",effective:"18 Sep 2024",renewalDate:"23 Mar 2027",law:"Sharjah, UAE",lowQualityScan:true}
 ];
 
 /* Full legal contract text per contract */
@@ -533,6 +533,17 @@ const DOCS = {
 
 /* Static insight cards per persona */
 function insightsFor(c,lens){
+  if(c.lowQualityScan){
+    const scanCard = {i:"📄",t:"Low Scan Quality",b:"This contract was sourced from a scanned PDF. Some fields — particularly the renewal date and liability terms — could not be extracted with full confidence. Manual verification of the source document is recommended.",conf:"Low confidence · Source quality",dot:"amber",scanWarning:true};
+    return [scanCard, ...insightsForBase(c,lens)];
+  }
+  if(c.conflictDates && !c.conflictResolved){
+    const conflictCard = {i:"⚠",t:"Conflicting Renewal Dates",b:`Two renewal dates were found in this contract: ${c.conflictDates[0]} (Clause 4) and ${c.conflictDates[1]} (Schedule reference). This needs verification before any alert can be scheduled.`,conf:"Conflicting · Needs verification",dot:"amber",isConflict:true,contractId:c.id,dateA:c.conflictDates[0],dateB:c.conflictDates[1]};
+    return [conflictCard, ...insightsForBase(c,lens)];
+  }
+  return insightsForBase(c,lens);
+}
+  function insightsForBase(c,lens){
   const g={
     legal:[
       {i:"⚠",t:"Liability review needed",b:`This ${c.type} agreement contains liability provisions that warrant legal review. Confirm whether indemnification is balanced between parties and whether caps are adequate.`,conf:"Medium confidence · General",dot:"amber"},
@@ -653,7 +664,7 @@ function renCell(c){
 }
 function cTable(list){
   if(!list.length)return`<table><tbody><tr class="empty-row"><td colspan="6">No contracts match filters.</td></tr></tbody></table>`;
-  return`<table><thead><tr><th>Contract</th><th>Type</th><th>Value</th><th>Renewal</th><th>Risk</th><th>Status</th></tr></thead><tbody>${list.map(c=>`<tr onclick="openDetail('${c.id}')"><td><div class="cn">${c.name}</div><div class="cv">${c.vendor}</div></td><td>${tb(c)}</td><td class="val">${c.value}</td><td>${renCell(c)}</td><td>${rb(c.risk)}</td><td>${sb(c)}</td></tr>`).join("")}</tbody></table>`;
+  return`<table><thead><tr><th>Contract</th><th>Type</th><th>Value</th><th>Renewal</th><th>Potential Risk</th><th>Status</th></tr></thead><tbody>${list.map(c=>`<tr onclick="openDetail('${c.id}')"><td><div class="cn">${c.name}</div><div class="cv">${c.vendor}</div></td><td>${tb(c)}</td><td class="val">${c.value}</td><td>${renCell(c)}</td><td>${rb(c.risk)}</td><td>${sb(c)}</td></tr>`).join("")}</tbody></table>`;
 }
 
 /* ═══════════════════════════════════════════
