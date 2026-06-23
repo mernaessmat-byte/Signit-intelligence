@@ -1157,8 +1157,17 @@ async function runQuery(q){
 
 // ── Compute spend from contract data (never AI) ──
 function computeAndShowSpend(){
-  const total = CONTRACTS.reduce((s,c)=>s+(c.valueNum||0),0);
-  const autoRenew = CONTRACTS.filter(c=>c.autoRenew&&c.renewalDays<90).reduce((s,c)=>s+(c.valueNum||0),0);
+  function parseVal(v){
+    if(!v || v==="—") return 0;
+    const m = v.replace(/[^0-9.KM]/gi,"").match(/^([\d.]+)([KM]?)/i);
+    if(!m) return 0;
+    let n = parseFloat(m[1]);
+    if(/K/i.test(m[2])) n *= 1000;
+    if(/M/i.test(m[2])) n *= 1000000;
+    return n;
+  }
+  const total = CONTRACTS.reduce((s,c)=>s+parseVal(c.value),0);
+  const autoRenew = CONTRACTS.filter(c=>c.autoRenew&&c.renewalDays<90).reduce((s,c)=>s+parseVal(c.value),0);
   function fmt(n){if(n>=1000000)return'$'+(n/1000000).toFixed(1)+'M';if(n>=1000)return'$'+Math.round(n/1000)+'K';return'$'+n;}
   const el1=document.getElementById('metricSpend');
   const el2=document.getElementById('metricAutoRenew');
